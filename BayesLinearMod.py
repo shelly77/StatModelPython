@@ -21,6 +21,8 @@ import matplotlib
 matplotlib.rcParams['font.size'] = 16
 matplotlib.rcParams['figure.figsize'] = (9, 9)
 
+import seaborn as sns
+
 
 # PyMC3 for Bayesian Inference
 import pymc3 as pm
@@ -140,9 +142,77 @@ Some useful functions for the posterior inspection
 pm.summary(normal_trace)
 plot_trace(normal_trace)
 pm.forestplot(normal_trace)
-pm.plot_posterior(normal_trace, figsize = (14, 14), text_size=20);
+pm.plot_posterior(normal_trace, figsize = (14, 14), text_size=20)
 
 #%%
+
+"""
+make predictions with test data set
+"""
+#%%
+#Make a new prediction from the test set and compare to actual value
+def test_model(trace, test_observation):
+    
+    # Print out the test observation data
+    print('Test Observation:')
+    print(test_observation)
+    var_dict = {}
+    for variable in trace.varnames:
+        var_dict[variable] = trace[variable]
+
+    # Results into a dataframe
+    var_weights = pd.DataFrame(var_dict)
+    
+    # Standard deviation of the likelihood
+    sd_value = var_weights['sd'].mean()
+
+    # Actual Value
+    actual = test_observation['Grade']
+    
+  
+    # Add in intercept term
+    test_observation['Intercept'] = 1
+    test_observation = test_observation.drop('Grade')
+    
+    # Align weights and test observation
+    var_weights = var_weights[test_observation.index]
+
+    # Means for all the weights
+    var_means = var_weights.mean(axis=0)
+
+    # Location of mean for observation
+    mean_loc = np.dot(var_means, test_observation)
+    
+    # Estimates of grade
+    estimates = np.random.normal(loc = mean_loc, scale = sd_value,
+                                 size = 1000)
+
+    # Plot all the estimates
+    sns.distplot(estimates, hist = True, kde = True, bins = 19,
+                 hist_kws = {'edgecolor': 'k', 'color': 'darkblue'},
+                kde_kws = {'linewidth' : 4},
+                label = 'Estimated Dist.')
+    # Plot the actual grade
+    plt.vlines(x = actual, ymin = 0, ymax = 5, 
+               linestyles = '--', colors = 'red',
+               label = 'True Grade',
+              linewidth = 2.5)
+    
+    # Plot the mean estimate
+    plt.vlines(x = mean_loc, ymin = 0, ymax = 5, 
+               linestyles = '-', colors = 'orange',
+               label = 'Mean Estimate',
+              linewidth = 2.5)
+    
+    plt.legend(loc = 1)
+    plt.title('Density Plot for Test Observation');
+    plt.xlabel('Grade'); plt.ylabel('Density');
+    
+    # Prediction information
+    print('True Grade = %d' % actual)
+    print('Average Estimate = %0.4f' % mean_loc)
+    print('5%% Estimate = %0.4f    95%% Estimate = %0.4f' % (np.percentile(estimates, 5),
+                                       np.percentile(estimates, 95)))
 
 
 
